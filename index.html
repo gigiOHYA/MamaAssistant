@@ -440,8 +440,7 @@ function setBtn(state) {
 // ── Notion API ──
 async function notionAPI(method, path, body) {
   if (mode === 'worker' && workerUrl) {
-    // Call via Cloudflare Worker proxy
-    const res = await fetch(workerUrl, {
+    const res = await fetch(workerUrl + '/notion', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -453,7 +452,6 @@ async function notionAPI(method, path, body) {
     });
     return await res.json();
   } else {
-    // Direct call (works on HTTPS pages with CORS support)
     const res = await fetch('https://api.notion.com/v1' + path, {
       method,
       headers: {
@@ -528,7 +526,8 @@ async function submit() {
   try {
     const today = new Date().toISOString().split('T')[0];
     const tomorrow = new Date(Date.now()+86400000).toISOString().split('T')[0];
-    const pr = await fetch('https://api.anthropic.com/v1/messages', {
+    const aiUrl = (mode==='worker' && workerUrl) ? workerUrl+'/ai' : 'https://api.anthropic.com/v1/messages';
+    const pr = await fetch(aiUrl, {
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514', max_tokens: 800,
