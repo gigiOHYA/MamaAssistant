@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="語音代辦">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#007aff">
+<title>語音代辦</title>
+<style>
+:root {
+  --bg: #f2f2f7;
+  --card: #ffffff;
+  --accent: #007aff;
+  --accent-light: #e8f1ff;
+  --red: #ff3b30;
+  --green: #34c759;
+  --gray: #8e8e93;
+  --gray2: #c7c7cc;
+  --gray3: #f2f2f7;
+  --text: #1c1c1e;
+  --text2: #6c6c70;
+  --border: #e5e5ea;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+body {
+  background: var(--bg); color: var(--text);
+  font-family: -apple-system, 'Helvetica Neue', sans-serif;
+  min-height: 100dvh; display: flex; flex-direction: column;
+  overscroll-behavior: none;
+}
+
+/* Header */
+.header {
+  background: rgba(242,242,247,0.94);
+  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+  padding: calc(var(--safe-top) + 12px) 16px 12px;
+  display: flex; align-items: center; justify-content: space-between;
+  position: sticky; top: 0; z-index: 50;
+  border-bottom: 0.5px solid var(--border);
+}
+.header-title { font-size: 17px; font-weight: 700; letter-spacing: -0.3px; }
+.header-sub { font-size: 11px; color: var(--text2); margin-top: 1px; }
+.notion-btn {
+  display: flex; align-items: center; gap: 5px;
+  padding: 6px 12px; border-radius: 20px;
+  background: var(--card); border: none;
+  font-size: 13px; font-weight: 500; color: var(--text2);
+  cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+}
+.notion-btn.connected { color: #1a7a3a; background: #e6f9ed; }
+.notion-btn.error { color: var(--red); background: #fff0f0; }
+.ndot { width: 7px; height: 7px; border-radius: 50%; background: var(--gray2); }
+.notion-btn.connected .ndot { background: var(--green); }
+.notion-btn.error .ndot { background: var(--red); }
+
+/* Sheet */
+.overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:100; align-items:flex-end; }
+.overlay.open { display:flex; }
+.sheet {
+  background: var(--card); border-radius: 20px 20px 0 0;
+  padding: 0 20px calc(var(--safe-bottom) + 24px);
+  width: 100%; max-height: 88dvh; overflow-y: auto;
+}
+.sheet-handle { width:36px; height:4px; background:var(--gray2); border-radius:2px; margin: 12px auto 20px; }
+.sheet h2 { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+.sheet-sub { font-size: 14px; color: var(--text2); margin-bottom: 20px; line-height: 1.5; }
+
+.tab-row { display: flex; gap: 8px; margin-bottom: 20px; }
+.tab {
+  flex: 1; padding: 8px; border-radius: 10px;
+  background: var(--gray3); border: 2px solid transparent;
+  font-size: 13px; font-weight: 600; color: var(--text2);
+  cursor: pointer; text-align: center; transition: all 0.2s;
+}
+.tab.active { background: var(--accent-light); border-color: var(--accent); color: var(--accent); }
+
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+
+.field { margin-bottom: 14px; }
+.field label { font-size: 13px; font-weight: 600; color: var(--text2); display: block; margin-bottom: 7px; }
+.field input {
+  width: 100%; background: var(--gray3); border: 1.5px solid transparent;
+  border-radius: 12px; padding: 14px 16px; font-size: 16px;
+  font-family: inherit; color: var(--text); outline: none;
+  transition: border-color 0.2s, background 0.2s; -webkit-appearance: none;
+}
+.field input:focus { border-color: var(--accent); background: white; }
+.field input::placeholder { color: var(--gray2); }
+.field .hint { font-size: 11px; color: var(--text2); margin-top: 5px; line-height: 1.5; }
+.field .hint a { color: var(--accent); text-decoration: none; }
+
+.btn-connect {
+  width: 100%; background: var(--accent); color: white;
+  border: none; border-radius: 14px; padding: 16px;
+  font-size: 17px; font-weight: 700; font-family: inherit;
+  cursor: pointer; margin-top: 4px; transition: opacity 0.15s;
+}
+.btn-connect:active { opacity: 0.8; }
+
+.steps {
+  margin-top: 16px; padding: 14px; background: var(--gray3);
+  border-radius: 12px; font-size: 12px; color: var(--text2); line-height: 2;
+}
+.steps a { color: var(--accent); text-decoration: none; }
+
+/* Scroll */
+.scroll-content { flex:1; overflow-y:auto; padding: 0 16px calc(var(--safe-bottom) + 170px); }
+
+/* Voice */
+.voice-card {
+  background: var(--card); border-radius: 20px; margin: 16px 0 12px;
+  padding: 28px 20px 24px; display: flex; flex-direction: column;
+  align-items: center; box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+}
+.mic-btn {
+  width: 96px; height: 96px; border-radius: 50%; background: var(--accent);
+  border: none; font-size: 42px; cursor: pointer;
+  box-shadow: 0 6px 24px rgba(0,122,255,0.32); transition: transform 0.15s;
+  display: flex; align-items: center; justify-content: center;
+}
+.mic-btn:active { transform: scale(0.94); }
+.mic-btn.recording {
+  background: var(--red); box-shadow: 0 6px 24px rgba(255,59,48,0.38);
+  animation: ripple 1.4s ease-in-out infinite;
+}
+@keyframes ripple {
+  0%,100% { box-shadow: 0 6px 24px rgba(255,59,48,0.38), 0 0 0 0 rgba(255,59,48,0.25); }
+  50% { box-shadow: 0 6px 24px rgba(255,59,48,0.38), 0 0 0 24px rgba(255,59,48,0); }
+}
+.mic-label { margin-top: 14px; font-size: 14px; color: var(--text2); font-weight: 500; text-align: center; }
+.mic-transcript { margin-top: 10px; font-size: 15px; color: var(--text2); text-align: center; min-height: 22px; font-style: italic; }
+
+/* Input bar */
+.input-bar {
+  position: fixed; bottom:0; left:0; right:0;
+  background: rgba(242,242,247,0.95); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+  border-top: 0.5px solid var(--border);
+  padding: 10px 16px calc(var(--safe-bottom) + 10px);
+  display: flex; gap: 10px; align-items: flex-end; z-index: 40;
+}
+.text-input {
+  flex:1; background: var(--card); border: 1.5px solid var(--border);
+  border-radius: 22px; padding: 10px 16px; font-size: 16px;
+  font-family: inherit; color: var(--text); outline: none; resize: none;
+  min-height: 44px; max-height: 110px; line-height: 1.45;
+  transition: border-color 0.2s; -webkit-appearance: none;
+}
+.text-input:focus { border-color: var(--accent); }
+.text-input::placeholder { color: var(--gray2); }
+.send-btn {
+  width: 44px; height: 44px; border-radius: 50%; background: var(--accent);
+  border: none; color: white; font-size: 20px; cursor: pointer;
+  flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 2px 8px rgba(0,122,255,0.3); transition: opacity 0.15s;
+}
+.send-btn:active { opacity: 0.8; }
+.send-btn:disabled { background: var(--gray2); box-shadow: none; }
+
+/* Processing */
+.processing {
+  display: none; align-items: center; gap: 10px;
+  padding: 12px 16px; background: var(--accent-light);
+  border-radius: 14px; margin: 4px 0 10px;
+  font-size: 13px; color: var(--accent); font-weight: 500;
+}
+.processing.show { display: flex; }
+.spinner {
+  width: 16px; height: 16px; border: 2px solid rgba(0,122,255,0.25);
+  border-top-color: var(--accent); border-radius: 50%;
+  animation: spin 0.7s linear infinite; flex-shrink: 0;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Sections */
+.section-header { display:flex; align-items:center; justify-content:space-between; margin: 16px 2px 10px; }
+.section-title { font-size:13px; font-weight:700; color:var(--text2); text-transform:uppercase; letter-spacing:0.4px; }
+.section-badge { font-size:12px; color:var(--gray); background:var(--card); padding:2px 8px; border-radius:10px; font-weight:600; }
+
+/* Task cards */
+.task-card {
+  background: var(--card); border-radius: 16px; padding: 13px 14px;
+  margin-bottom: 8px; display: flex; align-items: flex-start; gap: 12px;
+  box-shadow: 0 1px 6px rgba(0,0,0,0.06); transition: opacity 0.2s;
+}
+.task-card.done { opacity: 0.45; }
+.task-card.done .task-name { text-decoration: line-through; }
+.check {
+  width: 26px; height: 26px; border-radius: 50%; border: 2px solid var(--gray2);
+  flex-shrink: 0; cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: all 0.2s; font-size: 14px;
+}
+.check.checked { background: var(--green); border-color: var(--green); color: white; }
+.task-body { flex:1; min-width:0; }
+.task-name { font-size:16px; font-weight:500; line-height:1.4; word-break:break-word; }
+.task-meta { display:flex; flex-wrap:wrap; gap:5px; margin-top:7px; }
+.tag { font-size:11px; font-weight:600; padding:3px 8px; border-radius:8px; }
+.tag-high { background:#ffebeb; color:#c00; }
+.tag-medium { background:#fff8e0; color:#996600; }
+.tag-low { background:#e6f9ed; color:#1a6b35; }
+.tag-date { background:var(--gray3); color:var(--text2); }
+.sync-row { display:flex; align-items:center; gap:5px; font-size:11px; margin-top:6px; font-weight:500; }
+.sdot { width:5px; height:5px; border-radius:50%; }
+.s-synced { color:var(--green); } .s-synced .sdot { background:var(--green); }
+.s-syncing { color:var(--accent); } .s-syncing .sdot { background:var(--accent); animation:blink 1s infinite; }
+.s-failed { color:var(--red); cursor:pointer; } .s-failed .sdot { background:var(--red); }
+.s-local { color:var(--gray); } .s-local .sdot { background:var(--gray2); }
+@keyframes blink { 0%,100%{opacity:1}50%{opacity:0.3} }
+.del-btn {
+  width:30px; height:30px; border-radius:50%; background:var(--gray3);
+  border:none; color:var(--gray); font-size:15px; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+}
+
+/* Empty */
+.empty { text-align:center; padding:48px 24px; color:var(--text2); }
+.empty-icon { font-size:52px; margin-bottom:14px; }
+.empty p { font-size:15px; line-height:1.7; }
+
+/* Toast */
+.toast {
+  position:fixed; bottom:90px; left:50%;
+  transform:translateX(-50%) translateY(20px);
+  background:rgba(28,28,30,0.92); color:white;
+  padding:11px 20px; border-radius:20px;
+  font-size:14px; font-weight:500; z-index:200; opacity:0;
+  transition:all 0.3s cubic-bezier(0.34,1.56,0.64,1);
+  white-space:nowrap; pointer-events:none;
+}
+.toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <div class="header-title">🎙️ 語音代辦</div>
+    <div class="header-sub">說話即記錄，同步 Notion</div>
+  </div>
+  <button class="notion-btn" id="notionBtn" onclick="openSheet()">
+    <span class="ndot"></span>
+    <span id="notionBtnText">設定</span>
+  </button>
+</div>
+
+<!-- Setup Sheet -->
+<div class="overlay" id="overlay" onclick="bgClose(event)">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <h2>設定 🔧</h2>
+    <p class="sheet-sub">選擇連接方式，把任務同步到 Notion。</p>
+
+    <div class="tab-row">
+      <div class="tab active" id="tab1" onclick="switchTab(1)">🌐 Worker 代理<br><small style="font-weight:400;font-size:11px">推薦，最穩定</small></div>
+      <div class="tab" id="tab2" onclick="switchTab(2)">🔑 直接連接<br><small style="font-weight:400;font-size:11px">需同源環境</small></div>
+    </div>
+
+    <!-- Tab 1: Worker -->
+    <div class="tab-content active" id="tabContent1">
+      <div class="field">
+        <label>Cloudflare Worker 網址</label>
+        <input type="url" id="workerUrl" placeholder="https://xxx.workers.dev" autocomplete="off"/>
+        <div class="hint">需先部署 worker.js，詳見下方說明</div>
+      </div>
+      <div class="field">
+        <label>Notion Token</label>
+        <input type="password" id="tokenInput1" placeholder="secret_xxx 或 ntn_xxx" autocomplete="off"/>
+      </div>
+      <div class="field">
+        <label>Database ID</label>
+        <input type="text" id="dbInput1" placeholder="32 碼英數字" autocomplete="off"/>
+      </div>
+      <button class="btn-connect" onclick="connectWorker()">連接</button>
+      <div class="steps">
+        <b>部署 Worker（一次性設定）：</b><br>
+        1. 前往 <a href="https://dash.cloudflare.com" target="_blank">dash.cloudflare.com</a> 免費註冊<br>
+        2. 左側選 Workers & Pages → Create<br>
+        3. 點「Edit Code」，貼上 worker.js 的內容<br>
+        4. 點「Deploy」，複製產生的網址貼到上方
+      </div>
+    </div>
+
+    <!-- Tab 2: Direct -->
+    <div class="tab-content" id="tabContent2">
+      <div class="field">
+        <label>Notion Token</label>
+        <input type="password" id="tokenInput2" placeholder="secret_xxx 或 ntn_xxx" autocomplete="off"/>
+        <div class="hint">⚠️ 此模式需在 HTTPS 網站上才能連接 Notion（如 Cloudflare Pages）</div>
+      </div>
+      <div class="field">
+        <label>Database ID</label>
+        <input type="text" id="dbInput2" placeholder="32 碼英數字" autocomplete="off"/>
+      </div>
+      <button class="btn-connect" onclick="connectDirect()">連接</button>
+      <div class="steps">
+        1. 前往 <a href="https://www.notion.so/my-integrations" target="_blank">notion.so/my-integrations</a> 建立 Integration<br>
+        2. 複製 Token<br>
+        3. Notion 資料庫 ⋯ → Connections → 加入 Integration<br>
+        4. 從資料庫網址複製 Database ID（?v= 前那串）
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="scroll-content">
+  <div class="voice-card">
+    <button class="mic-btn" id="micBtn" onclick="toggleVoice()">
+      <span id="micIcon">🎙️</span>
+    </button>
+    <div class="mic-label" id="micLabel">點擊麥克風開始說話</div>
+    <div class="mic-transcript" id="transcript"></div>
+  </div>
+
+  <div class="processing" id="processing">
+    <div class="spinner"></div>
+    <span id="processingMsg">AI 解析中...</span>
+  </div>
+
+  <div id="todoSection" style="display:none">
+    <div class="section-header">
+      <span class="section-title">📋 代辦事項</span>
+      <span class="section-badge" id="todoBadge">0</span>
+    </div>
+    <div id="todoList"></div>
+  </div>
+
+  <div id="shopSection" style="display:none">
+    <div class="section-header">
+      <span class="section-title">🛒 購物清單</span>
+      <span class="section-badge" id="shopBadge">0</span>
+    </div>
+    <div id="shopList"></div>
+  </div>
+
+  <div class="empty" id="emptyState">
+    <div class="empty-icon">🎙️</div>
+    <p>按下麥克風，說出代辦事項<br>或購物清單，AI 自動整理<br>並同步到 Notion</p>
+  </div>
+</div>
+
+<div class="input-bar">
+  <textarea class="text-input" id="textInput" placeholder="或用打字輸入…" rows="1"
+    oninput="autoResize(this)" onkeydown="onKey(event)"></textarea>
+  <button class="send-btn" id="sendBtn" onclick="submit()">↑</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── State ──
+let tasks = JSON.parse(localStorage.getItem('tasks_v4') || '[]');
+let notionToken = localStorage.getItem('nt') || '';
+let databaseId  = localStorage.getItem('nd') || '';
+let workerUrl   = localStorage.getItem('wu') || '';
+let mode = localStorage.getItem('mode') || 'worker'; // 'worker' | 'direct'
+let notionOK = false;
+let recog = null, recording = false;
+
+// Init
+if (workerUrl) document.getElementById('workerUrl').value = workerUrl;
+if (notionToken) { document.getElementById('tokenInput1').value = notionToken; document.getElementById('tokenInput2').value = notionToken; }
+if (databaseId) { document.getElementById('dbInput1').value = databaseId; document.getElementById('dbInput2').value = databaseId; }
+if (mode === 'direct') switchTab(2);
+if (notionToken && databaseId && (mode === 'direct' || workerUrl)) verifyNotion(true);
+render();
+
+// ── Tabs ──
+function switchTab(n) {
+  [1,2].forEach(i => {
+    document.getElementById('tab'+i).classList.toggle('active', i===n);
+    document.getElementById('tabContent'+i).classList.toggle('active', i===n);
+  });
+}
+
+// ── Sheet ──
+function openSheet() { document.getElementById('overlay').classList.add('open'); }
+function closeSheet() { document.getElementById('overlay').classList.remove('open'); }
+function bgClose(e) { if (e.target===document.getElementById('overlay')) closeSheet(); }
+
+// ── Connect ──
+async function connectWorker() {
+  workerUrl   = document.getElementById('workerUrl').value.trim().replace(/\/$/, '');
+  notionToken = document.getElementById('tokenInput1').value.trim();
+  databaseId  = document.getElementById('dbInput1').value.trim().replace(/-/g,'');
+  if (!workerUrl || !notionToken || !databaseId) { showToast('請填寫所有欄位 ⚠️'); return; }
+  mode = 'worker';
+  await verifyNotion(false);
+}
+
+async function connectDirect() {
+  notionToken = document.getElementById('tokenInput2').value.trim();
+  databaseId  = document.getElementById('dbInput2').value.trim().replace(/-/g,'');
+  if (!notionToken || !databaseId) { showToast('請填寫 Token 和 Database ID ⚠️'); return; }
+  mode = 'direct';
+  await verifyNotion(false);
+}
+
+async function verifyNotion(silent) {
+  setBtn('connecting');
+  try {
+    const r = await notionAPI('GET', '/databases/' + databaseId, null);
+    if (r && (r.object === 'database' || r.id)) {
+      notionOK = true;
+      localStorage.setItem('nt', notionToken);
+      localStorage.setItem('nd', databaseId);
+      localStorage.setItem('wu', workerUrl);
+      localStorage.setItem('mode', mode);
+      setBtn('connected');
+      if (!silent) { closeSheet(); showToast('✓ 已連接 Notion'); }
+      // Retry failed
+      tasks.filter(t => t.notion_status === 'failed' || t.notion_status === 'local').forEach(t => {
+        t.notion_status = 'syncing';
+        syncTask(t).then(() => { save(); render(); });
+      });
+      render();
+    } else {
+      throw new Error(r?.message || 'invalid response');
+    }
+  } catch(e) {
+    setBtn('error');
+    if (!silent) showToast('連接失敗：' + (e.message||'請確認設定'));
+  }
+}
+
+function setBtn(state) {
+  const btn = document.getElementById('notionBtn');
+  const txt = document.getElementById('notionBtnText');
+  btn.className = 'notion-btn';
+  if (state==='connected') { btn.classList.add('connected'); txt.textContent='已連接'; }
+  else if (state==='error') { btn.classList.add('error'); txt.textContent='連接失敗'; }
+  else txt.textContent = '連接中…';
+}
+
+// ── Notion API ──
+async function notionAPI(method, path, body) {
+  if (mode === 'worker' && workerUrl) {
+    // Call via Cloudflare Worker proxy
+    const res = await fetch(workerUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Notion-Token': notionToken,
+        'X-Notion-Path': path,
+        'X-Notion-Method': method,
+      },
+      body: body ? JSON.stringify(body) : undefined
+    });
+    return await res.json();
+  } else {
+    // Direct call (works on HTTPS pages with CORS support)
+    const res = await fetch('https://api.notion.com/v1' + path, {
+      method,
+      headers: {
+        'Authorization': 'Bearer ' + notionToken,
+        'Notion-Version': '2022-06-28',
+        'Content-Type': 'application/json',
+      },
+      body: body ? JSON.stringify(body) : undefined
+    });
+    return await res.json();
+  }
+}
+
+// ── Voice ──
+function toggleVoice() { recording ? stopVoice() : startVoice(); }
+
+function startVoice() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { showToast('瀏覽器不支援語音，請用文字輸入 ⚠️'); return; }
+  recog = new SR();
+  recog.lang = 'zh-TW'; recog.continuous = false; recog.interimResults = true;
+
+  recog.onstart = () => {
+    recording = true;
+    document.getElementById('micBtn').classList.add('recording');
+    document.getElementById('micIcon').textContent = '⏹️';
+    document.getElementById('micLabel').textContent = '聆聽中… 說完自動送出';
+    document.getElementById('transcript').textContent = '';
+  };
+  recog.onresult = e => {
+    let interim='', final='';
+    for (let i=e.resultIndex; i<e.results.length; i++) {
+      e.results[i].isFinal ? final+=e.results[i][0].transcript : interim+=e.results[i][0].transcript;
+    }
+    document.getElementById('transcript').textContent = final || interim;
+    if (final) document.getElementById('textInput').value = final;
+  };
+  recog.onerror = e => {
+    stopVoice();
+    if (e.error==='not-allowed') showToast('請允許麥克風權限 🎙️');
+    else if (e.error!=='no-speech') showToast('語音辨識失敗，請重試');
+  };
+  recog.onend = () => {
+    stopVoice();
+    const t = document.getElementById('textInput').value.trim();
+    if (t) setTimeout(() => submit(), 200);
+  };
+  recog.start();
+}
+
+function stopVoice() {
+  recording = false;
+  if (recog) { try { recog.stop(); } catch(e){} recog = null; }
+  document.getElementById('micBtn').classList.remove('recording');
+  document.getElementById('micIcon').textContent = '🎙️';
+  document.getElementById('micLabel').textContent = '點擊麥克風開始說話';
+}
+
+// ── Submit ──
+function onKey(e) { if (e.key==='Enter' && !e.shiftKey && window.innerWidth>600) { e.preventDefault(); submit(); } }
+function autoResize(el) { el.style.height='auto'; el.style.height=Math.min(el.scrollHeight,110)+'px'; }
+
+async function submit() {
+  const inp = document.getElementById('textInput');
+  const text = inp.value.trim();
+  if (!text) return;
+  inp.value=''; autoResize(inp);
+  document.getElementById('transcript').textContent='';
+  document.getElementById('sendBtn').disabled = true;
+  showProcessing('AI 解析中...');
+
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const tomorrow = new Date(Date.now()+86400000).toISOString().split('T')[0];
+    const pr = await fetch('https://api.anthropic.com/v1/messages', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514', max_tokens: 800,
+        system: `你是任務解析助手。把輸入拆成一或多個任務。今天：${today}，明天：${tomorrow}。
+type規則：食材/日用品/超市商品→"shopping"，其他→"todo"。
+回傳ONLY JSON array（無markdown）：[{"name":"名稱","type":"todo|shopping","priority":"high|medium|low|none","due_date":"YYYY-MM-DD or null"}]`,
+        messages:[{role:'user',content:text}]
+      })
+    });
+    const pd = await pr.json();
+    const raw = pd.content?.[0]?.text || '[]';
+    const pm = raw.replace(/```json|```/g,'').trim().match(/\[[\s\S]*\]/);
+    const items = pm ? JSON.parse(pm[0]) : [{name:text,type:'todo',priority:'none',due_date:null}];
+
+    for (const item of items) {
+      const task = {
+        id: Date.now().toString(36)+Math.random().toString(36).slice(2,6),
+        name: item.name||text, type: item.type||'todo',
+        priority: item.priority||'none', due_date: item.due_date||null,
+        done: false, notion_id: null,
+        notion_status: notionOK ? 'syncing' : 'local',
+        created_at: new Date().toISOString()
+      };
+      tasks.unshift(task); render();
+      if (notionOK) { showProcessing('同步到 Notion...'); syncTask(task).then(()=>{save();render();}); }
+    }
+    save(); render();
+    showToast(`已新增 ${items.length} 項 ✓`);
+  } catch(e) {
+    console.error(e); showToast('發生錯誤，請重試 ✕');
+  } finally {
+    hideProcessing(); document.getElementById('sendBtn').disabled=false;
+  }
+}
+
+// ── Sync ──
+async function syncTask(task) {
+  try {
+    const pMap = {high:'High',medium:'Medium',low:'Low',none:null};
+    const props = {
+      "Name": {title:[{text:{content:task.name}}]},
+      "Status": {status:{name:"未開始"}}
+    };
+    if (task.due_date) props["Due Date"] = {date:{start:task.due_date}};
+    if (pMap[task.priority]) props["Priority"] = {select:{name:pMap[task.priority]}};
+    const page = await notionAPI('POST','/pages',{parent:{database_id:databaseId},properties:props});
+    if (page?.id) { task.notion_id=page.id; task.notion_status='synced'; }
+    else task.notion_status='failed';
+  } catch(e) { task.notion_status='failed'; }
+}
+
+async function retrySync(id) {
+  const t=tasks.find(x=>x.id===id); if(!t||!notionOK) return;
+  t.notion_status='syncing'; render();
+  await syncTask(t); save(); render();
+}
+async function toggleDone(id) {
+  const t=tasks.find(x=>x.id===id); if(!t) return;
+  t.done=!t.done; save(); render();
+  if (notionOK && t.notion_id) {
+    try { await notionAPI('PATCH','/pages/'+t.notion_id,{properties:{"Status":{status:{name:t.done?'完成':'進行中'}}}}); }
+    catch(e){}
+  }
+}
+function deleteTask(id) { tasks=tasks.filter(t=>t.id!==id); save(); render(); }
+
+// ── Render ──
+function render() {
+  const todos=tasks.filter(t=>t.type==='todo'), shops=tasks.filter(t=>t.type==='shopping');
+  document.getElementById('emptyState').style.display = tasks.length?'none':'block';
+  document.getElementById('todoSection').style.display = todos.length?'block':'none';
+  document.getElementById('shopSection').style.display = shops.length?'block':'none';
+  document.getElementById('todoBadge').textContent = todos.filter(t=>!t.done).length+'/'+todos.length;
+  document.getElementById('shopBadge').textContent = shops.filter(t=>!t.done).length+'/'+shops.length;
+  document.getElementById('todoList').innerHTML = todos.map(cardHTML).join('');
+  document.getElementById('shopList').innerHTML = shops.map(cardHTML).join('');
+}
+function cardHTML(t) {
+  const pl={high:'🔴 高',medium:'🟡 中',low:'🟢 低'};
+  const s={
+    synced:`<div class="sync-row s-synced"><span class="sdot"></span>已同步 Notion</div>`,
+    syncing:`<div class="sync-row s-syncing"><span class="sdot"></span>同步中…</div>`,
+    failed:`<div class="sync-row s-failed" onclick="retrySync('${t.id}')"><span class="sdot"></span>同步失敗，點擊重試</div>`,
+    local:`<div class="sync-row s-local"><span class="sdot"></span>未連接 Notion</div>`
+  };
+  return `<div class="task-card ${t.done?'done':''}">
+    <div class="check ${t.done?'checked':''}" onclick="toggleDone('${t.id}')">${t.done?'✓':''}</div>
+    <div class="task-body">
+      <div class="task-name">${esc(t.name)}</div>
+      <div class="task-meta">
+        ${t.priority!=='none'?`<span class="tag tag-${t.priority}">${pl[t.priority]||''}</span>`:''}
+        ${t.due_date?`<span class="tag tag-date">📅 ${t.due_date}</span>`:''}
+      </div>
+      ${s[t.notion_status]||''}
+    </div>
+    <button class="del-btn" onclick="deleteTask('${t.id}')">✕</button>
+  </div>`;
+}
+function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function save(){localStorage.setItem('tasks_v4',JSON.stringify(tasks));}
+function showProcessing(m){document.getElementById('processing').classList.add('show');document.getElementById('processingMsg').textContent=m;}
+function hideProcessing(){document.getElementById('processing').classList.remove('show');}
+let tt;
+function showToast(m){const el=document.getElementById('toast');el.textContent=m;el.classList.add('show');clearTimeout(tt);tt=setTimeout(()=>el.classList.remove('show'),2500);}
+</script>
+</body>
+</html>
