@@ -569,7 +569,7 @@ async function syncTask(task) {
     const pMap = {high:'High',medium:'Medium',low:'Low',none:null};
     const props = {
       "Name": {title:[{text:{content:task.name}}]},
-      "Status": {status:{name:"未開始"}}
+      "Status": {status:{name:"Not started"}}
     };
     if (task.due_date) props["Due Date"] = {date:{start:task.due_date}};
     if (pMap[task.priority]) props["Priority"] = {select:{name:pMap[task.priority]}};
@@ -588,7 +588,7 @@ async function toggleDone(id) {
   const t=tasks.find(x=>x.id===id); if(!t) return;
   t.done=!t.done; save(); render();
   if (notionOK && t.notion_id) {
-    try { await notionAPI('PATCH','/pages/'+t.notion_id,{properties:{"Status":{status:{name:t.done?'完成':'進行中'}}}}); }
+    try { await notionAPI('PATCH','/pages/'+t.notion_id,{properties:{"Status":{status:{name:t.done?'Done':'In progress'}}}}); }
     catch(e){}
   }
 }
