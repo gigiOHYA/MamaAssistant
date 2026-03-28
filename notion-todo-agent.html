@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="語音代辦">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#1a73e8">
+<title>語音代辦</title>
+<style>
+:root {
+  --bg: #f8f9fa;
+  --card: #ffffff;
+  --accent: #1a73e8;
+  --accent-light: #e8f0fe;
+  --red: #ea4335;
+  --green: #34a853;
+  --yellow: #fbbc04;
+  --gray: #80868b;
+  --gray2: #dadce0;
+  --gray3: #f1f3f4;
+  --text: #202124;
+  --text2: #5f6368;
+  --border: #e0e0e0;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --cal: #1a73e8;
+  --keep: #fbbc04;
+  --tasks: #34a853;
+}
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+body {
+  background: var(--bg); color: var(--text);
+  font-family: 'Google Sans', -apple-system, sans-serif;
+  min-height: 100dvh; display: flex; flex-direction: column;
+  overscroll-behavior: none;
+}
+
+/* Header */
+.header {
+  background: var(--card);
+  padding: calc(var(--safe-top) + 12px) 16px 12px;
+  display: flex; align-items: center; justify-content: space-between;
+  position: sticky; top: 0; z-index: 50;
+  border-bottom: 1px solid var(--border);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+}
+.header-left { display: flex; align-items: center; gap: 10px; }
+.app-icon {
+  width: 38px; height: 38px; border-radius: 10px;
+  background: var(--accent); display: flex; align-items: center; justify-content: center;
+  font-size: 20px;
+}
+.header-title { font-size: 17px; font-weight: 700; }
+.header-sub { font-size: 11px; color: var(--text2); margin-top: 1px; }
+
+.setup-btn {
+  display: flex; align-items: center; gap: 5px;
+  padding: 7px 14px; border-radius: 20px;
+  background: var(--gray3); border: none;
+  font-size: 13px; font-weight: 500; color: var(--text2);
+  cursor: pointer;
+}
+.setup-btn.connected { background: #e6f4ea; color: #1e7e34; }
+.setup-btn.error { background: #fce8e6; color: var(--red); }
+.sdot { width: 7px; height: 7px; border-radius: 50%; background: var(--gray2); }
+.setup-btn.connected .sdot { background: var(--green); }
+.setup-btn.error .sdot { background: var(--red); }
+
+/* Sheet */
+.overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.4); z-index:100; align-items:flex-end; }
+.overlay.open { display:flex; }
+.sheet {
+  background: var(--card); border-radius: 20px 20px 0 0;
+  padding: 0 20px calc(var(--safe-bottom) + 28px);
+  width: 100%; max-height: 85dvh; overflow-y: auto;
+}
+.sheet-handle { width:36px; height:4px; background:var(--gray2); border-radius:2px; margin: 12px auto 20px; }
+.sheet h2 { font-size: 20px; font-weight: 700; margin-bottom: 6px; }
+.sheet-sub { font-size: 14px; color: var(--text2); margin-bottom: 22px; line-height: 1.5; }
+.field { margin-bottom: 16px; }
+.field label { font-size: 13px; font-weight: 600; color: var(--text2); display: block; margin-bottom: 7px; }
+.field input {
+  width: 100%; background: var(--gray3); border: 1.5px solid transparent;
+  border-radius: 12px; padding: 14px 16px; font-size: 16px;
+  font-family: inherit; color: var(--text); outline: none;
+  transition: border-color 0.2s; -webkit-appearance: none;
+}
+.field input:focus { border-color: var(--accent); background: white; }
+.field input::placeholder { color: var(--gray2); }
+.field .hint { font-size: 12px; color: var(--text2); margin-top: 6px; line-height: 1.6; }
+.field .hint a { color: var(--accent); text-decoration: none; }
+.btn-primary {
+  width: 100%; background: var(--accent); color: white;
+  border: none; border-radius: 14px; padding: 16px;
+  font-size: 17px; font-weight: 700; font-family: inherit;
+  cursor: pointer; transition: opacity 0.15s;
+}
+.btn-primary:active { opacity: 0.85; }
+
+/* Scroll */
+.scroll-content { flex:1; overflow-y:auto; padding: 0 16px calc(var(--safe-bottom) + 170px); }
+
+/* Voice card */
+.voice-card {
+  background: var(--card); border-radius: 20px; margin: 16px 0 14px;
+  padding: 28px 20px 22px; display: flex; flex-direction: column;
+  align-items: center; border: 1px solid var(--border);
+}
+.mic-btn {
+  width: 96px; height: 96px; border-radius: 50%; background: var(--accent);
+  border: none; font-size: 40px; cursor: pointer;
+  box-shadow: 0 4px 20px rgba(26,115,232,0.35);
+  display: flex; align-items: center; justify-content: center;
+  transition: transform 0.15s;
+}
+.mic-btn:active { transform: scale(0.94); }
+.mic-btn.recording {
+  background: var(--red); box-shadow: 0 4px 20px rgba(234,67,53,0.4);
+  animation: ripple 1.4s ease-in-out infinite;
+}
+@keyframes ripple {
+  0%,100% { box-shadow: 0 4px 20px rgba(234,67,53,0.4), 0 0 0 0 rgba(234,67,53,0.2); }
+  50% { box-shadow: 0 4px 20px rgba(234,67,53,0.4), 0 0 0 22px rgba(234,67,53,0); }
+}
+.mic-label { margin-top: 14px; font-size: 14px; color: var(--text2); font-weight: 500; }
+.mic-transcript { margin-top: 8px; font-size: 15px; color: var(--text2); text-align: center; min-height: 20px; font-style: italic; }
+
+/* Routing preview */
+.route-hint {
+  display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; justify-content: center;
+}
+.route-chip {
+  font-size: 12px; padding: 4px 10px; border-radius: 12px; font-weight: 500;
+  display: flex; align-items: center; gap: 4px;
+}
+.chip-cal { background: #e8f0fe; color: var(--cal); }
+.chip-keep { background: #fef7e0; color: #b06000; }
+.chip-tasks { background: #e6f4ea; color: #1e7e34; }
+
+/* Processing */
+.processing {
+  display:none; align-items:center; gap:10px;
+  padding:12px 16px; background:var(--accent-light);
+  border-radius:14px; margin:4px 0 12px;
+  font-size:13px; color:var(--accent); font-weight:500;
+}
+.processing.show { display:flex; }
+.spinner {
+  width:16px; height:16px; border:2px solid rgba(26,115,232,0.25);
+  border-top-color:var(--accent); border-radius:50%;
+  animation:spin 0.7s linear infinite; flex-shrink:0;
+}
+@keyframes spin { to { transform:rotate(360deg); } }
+
+/* Section */
+.section-header { display:flex; align-items:center; justify-content:space-between; margin:16px 2px 10px; }
+.section-title { font-size:13px; font-weight:700; color:var(--text2); text-transform:uppercase; letter-spacing:0.4px; }
+.section-badge { font-size:12px; color:var(--gray); background:var(--card); padding:2px 9px; border-radius:10px; font-weight:600; border:1px solid var(--border); }
+
+/* Task card */
+.task-card {
+  background: var(--card); border-radius: 14px; padding: 13px 14px;
+  margin-bottom: 8px; display:flex; align-items:flex-start; gap:12px;
+  border: 1px solid var(--border); transition:opacity 0.2s;
+}
+.task-card.done { opacity:0.45; }
+.task-card.done .task-name { text-decoration:line-through; }
+
+.task-card .platform-bar {
+  width: 4px; border-radius: 4px; flex-shrink:0; align-self: stretch; min-height: 20px;
+}
+.bar-cal { background: var(--cal); }
+.bar-tasks { background: var(--tasks); }
+
+.check {
+  width:24px; height:24px; border-radius:50%; border:2px solid var(--gray2);
+  flex-shrink:0; cursor:pointer; display:flex; align-items:center; justify-content:center;
+  transition:all 0.2s; font-size:13px;
+}
+.check.checked { background:var(--green); border-color:var(--green); color:white; }
+
+.task-body { flex:1; min-width:0; }
+.task-name { font-size:15px; font-weight:500; line-height:1.4; word-break:break-word; }
+.task-meta { display:flex; flex-wrap:wrap; gap:5px; margin-top:7px; }
+.tag { font-size:11px; font-weight:600; padding:3px 8px; border-radius:8px; }
+.tag-high { background:#fce8e6; color:#c5221f; }
+.tag-medium { background:#fef7e0; color:#b06000; }
+.tag-low { background:#e6f4ea; color:#1e7e34; }
+.tag-date { background:var(--gray3); color:var(--text2); }
+.tag-time { background:#e8f0fe; color:var(--cal); }
+.tag-cal { background:#e8f0fe; color:var(--cal); }
+.tag-tasks-shopping { background:#fef7e0; color:#b06000; }
+.tag-tasks-misc { background:#e6f4ea; color:#1e7e34; }
+
+.sync-row { display:flex; align-items:center; gap:5px; font-size:11px; margin-top:6px; font-weight:500; }
+.dot5 { width:5px; height:5px; border-radius:50%; }
+.s-synced { color:var(--green); } .s-synced .dot5 { background:var(--green); }
+.s-syncing { color:var(--accent); } .s-syncing .dot5 { background:var(--accent); animation:blink 1s infinite; }
+.s-failed { color:var(--red); cursor:pointer; } .s-failed .dot5 { background:var(--red); }
+.s-local { color:var(--gray); } .s-local .dot5 { background:var(--gray2); }
+@keyframes blink { 0%,100%{opacity:1}50%{opacity:0.3} }
+
+.del-btn {
+  width:28px; height:28px; border-radius:50%; background:var(--gray3);
+  border:none; color:var(--gray); font-size:14px; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+}
+
+/* Input bar */
+.input-bar {
+  position:fixed; bottom:0; left:0; right:0;
+  background:rgba(248,249,250,0.96); backdrop-filter:blur(16px);
+  border-top:1px solid var(--border);
+  padding:10px 16px calc(var(--safe-bottom) + 10px);
+  display:flex; gap:10px; align-items:flex-end; z-index:40;
+}
+.text-input {
+  flex:1; background:var(--card); border:1.5px solid var(--border);
+  border-radius:22px; padding:10px 16px; font-size:16px;
+  font-family:inherit; color:var(--text); outline:none; resize:none;
+  min-height:44px; max-height:110px; line-height:1.45;
+  transition:border-color 0.2s; -webkit-appearance:none;
+}
+.text-input:focus { border-color:var(--accent); }
+.text-input::placeholder { color:var(--gray2); }
+.send-btn {
+  width:44px; height:44px; border-radius:50%; background:var(--accent);
+  border:none; color:white; font-size:20px; cursor:pointer;
+  flex-shrink:0; display:flex; align-items:center; justify-content:center;
+  box-shadow:0 2px 8px rgba(26,115,232,0.3); transition:opacity 0.15s;
+}
+.send-btn:active { opacity:0.8; }
+.send-btn:disabled { background:var(--gray2); box-shadow:none; }
+
+/* Empty */
+.empty { text-align:center; padding:48px 24px; color:var(--text2); }
+.empty-icon { font-size:50px; margin-bottom:14px; }
+.empty p { font-size:14px; line-height:1.8; }
+
+/* Toast */
+.toast {
+  position:fixed; bottom:90px; left:50%;
+  transform:translateX(-50%) translateY(20px);
+  background:rgba(32,33,36,0.92); color:white;
+  padding:11px 20px; border-radius:20px;
+  font-size:14px; font-weight:500; z-index:200; opacity:0;
+  transition:all 0.3s cubic-bezier(0.34,1.56,0.64,1);
+  white-space:nowrap; pointer-events:none;
+}
+.toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <div class="app-icon">🎙️</div>
+    <div>
+      <div class="header-title">語音代辦</div>
+      <div class="header-sub">行事曆 · 購物 · 雜項</div>
+    </div>
+  </div>
+  <button class="setup-btn" id="setupBtn" onclick="openSheet()">
+    <span class="sdot"></span>
+    <span id="setupBtnText">設定</span>
+  </button>
+</div>
+
+<!-- Setup Sheet -->
+<div class="overlay" id="overlay" onclick="bgClose(event)">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <h2>設定 ⚙️</h2>
+    <p class="sheet-sub">填入兩個服務的網址，語音輸入就會自動分流到 Google 行事曆和 Google Tasks。</p>
+
+    <div class="field">
+      <label>🤖 Cloudflare Worker 網址（AI 解析）</label>
+      <input type="url" id="workerUrl" placeholder="https://xxx.workers.dev" autocomplete="off"/>
+      <div class="hint">同之前設定的 Worker，用來呼叫 AI 解析語音內容</div>
+    </div>
+
+    <div class="field">
+      <label>📋 Google Apps Script 網址</label>
+      <input type="url" id="gasUrl" placeholder="https://script.google.com/macros/s/xxx/exec" autocomplete="off"/>
+      <div class="hint">
+        部署步驟：<br>
+        1. 前往 <a href="https://script.google.com" target="_blank">script.google.com</a> → 新增專案<br>
+        2. 貼上 <b>google-apps-script.js</b> 的內容<br>
+        3. 點「部署」→「新增部署作業」→ 類型選「網頁應用程式」<br>
+        4. 執行身分：<b>我</b>，存取權：<b>所有人</b> → 部署<br>
+        5. 複製網址貼到上方
+      </div>
+    </div>
+
+    <button class="btn-primary" onclick="saveSettings()">儲存並測試連線</button>
+  </div>
+</div>
+
+<div class="scroll-content">
+
+  <div class="voice-card">
+    <button class="mic-btn" id="micBtn" onclick="toggleVoice()">
+      <span id="micIcon">🎙️</span>
+    </button>
+    <div class="mic-label" id="micLabel">點擊麥克風開始說話</div>
+    <div class="mic-transcript" id="transcript"></div>
+    <div class="route-hint">
+      <span class="route-chip chip-cal">📅 行事曆</span>
+      <span class="route-chip chip-keep">🛒 購物清單</span>
+      <span class="route-chip chip-tasks">📌 雜項</span>
+    </div>
+  </div>
+
+  <div class="processing" id="processing">
+    <div class="spinner"></div>
+    <span id="processingMsg">AI 解析中...</span>
+  </div>
+
+  <!-- Calendar events -->
+  <div id="calSection" style="display:none">
+    <div class="section-header">
+      <span class="section-title">📅 行事曆</span>
+      <span class="section-badge" id="calBadge">0</span>
+    </div>
+    <div id="calList"></div>
+  </div>
+
+  <!-- Shopping -->
+  <div id="shopSection" style="display:none">
+    <div class="section-header">
+      <span class="section-title">🛒 購物清單</span>
+      <span class="section-badge" id="shopBadge">0</span>
+    </div>
+    <div id="shopList"></div>
+  </div>
+
+  <!-- Misc tasks -->
+  <div id="miscSection" style="display:none">
+    <div class="section-header">
+      <span class="section-title">📌 雜項</span>
+      <span class="section-badge" id="miscBadge">0</span>
+    </div>
+    <div id="miscList"></div>
+  </div>
+
+  <div class="empty" id="emptyState">
+    <div class="empty-icon">🎙️</div>
+    <p>
+      按麥克風說出任何事項<br>
+      <span style="color:var(--cal)">📅 有時間日期</span> → Google 行事曆<br>
+      <span style="color:#b06000">🛒 購物清單</span> → Google Tasks 購物<br>
+      <span style="color:#1e7e34">📌 其他雜項</span> → Google Tasks 雜項
+    </p>
+  </div>
+
+</div>
+
+<div class="input-bar">
+  <textarea class="text-input" id="textInput" placeholder="或用打字輸入…" rows="1"
+    oninput="autoResize(this)" onkeydown="onKey(event)"></textarea>
+  <button class="send-btn" id="sendBtn" onclick="submit()">↑</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── State ──
+let tasks = JSON.parse(localStorage.getItem('tasks_v5') || '[]');
+let workerUrl = localStorage.getItem('worker_url') || '';
+let gasUrl    = localStorage.getItem('gas_url') || '';
+let isReady   = !!(workerUrl && gasUrl);
+let recog = null, recording = false;
+
+if (workerUrl) document.getElementById('workerUrl').value = workerUrl;
+if (gasUrl)    document.getElementById('gasUrl').value = gasUrl;
+updateSetupBtn();
+render();
+
+// ── Sheet ──
+function openSheet() { document.getElementById('overlay').classList.add('open'); }
+function closeSheet() { document.getElementById('overlay').classList.remove('open'); }
+function bgClose(e) { if (e.target===document.getElementById('overlay')) closeSheet(); }
+
+async function saveSettings() {
+  workerUrl = document.getElementById('workerUrl').value.trim().replace(/\/$/,'');
+  gasUrl    = document.getElementById('gasUrl').value.trim();
+  if (!workerUrl || !gasUrl) { showToast('請填寫兩個網址 ⚠️'); return; }
+
+  // Test GAS connection with a ping
+  try {
+    showToast('測試連線中…');
+    const r = await fetch(gasUrl + '?ping=1');
+    // GAS will 405 on GET but that means it's reachable
+    localStorage.setItem('worker_url', workerUrl);
+    localStorage.setItem('gas_url', gasUrl);
+    isReady = true;
+    updateSetupBtn();
+    closeSheet();
+    showToast('✓ 設定已儲存');
+    // Retry any failed tasks
+    tasks.filter(t=>t.sync_status==='failed'||t.sync_status==='local').forEach(t=>{
+      t.sync_status='syncing'; syncTask(t).then(()=>{save();render();});
+    });
+    render();
+  } catch(e) {
+    showToast('連線失敗，請確認網址 ✕');
+  }
+}
+
+function updateSetupBtn() {
+  const btn = document.getElementById('setupBtn');
+  const txt = document.getElementById('setupBtnText');
+  if (isReady) { btn.className='setup-btn connected'; txt.textContent='已設定'; }
+  else { btn.className='setup-btn'; txt.textContent='設定'; }
+}
+
+// ── Voice ──
+function toggleVoice() { recording ? stopVoice() : startVoice(); }
+
+function startVoice() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { showToast('請改用文字輸入 ⚠️'); return; }
+  recog = new SR();
+  recog.lang = 'zh-TW'; recog.continuous = false; recog.interimResults = true;
+
+  recog.onstart = () => {
+    recording = true;
+    document.getElementById('micBtn').classList.add('recording');
+    document.getElementById('micIcon').textContent = '⏹️';
+    document.getElementById('micLabel').textContent = '聆聽中… 說完自動送出';
+    document.getElementById('transcript').textContent = '';
+  };
+  recog.onresult = e => {
+    let interim='', final='';
+    for (let i=e.resultIndex; i<e.results.length; i++) {
+      e.results[i].isFinal ? final+=e.results[i][0].transcript : interim+=e.results[i][0].transcript;
+    }
+    document.getElementById('transcript').textContent = final||interim;
+    if (final) document.getElementById('textInput').value = final;
+  };
+  recog.onerror = e => {
+    stopVoice();
+    if (e.error==='not-allowed') showToast('請允許麥克風權限 🎙️');
+    else if (e.error!=='no-speech') showToast('語音辨識失敗，請重試');
+  };
+  recog.onend = () => {
+    stopVoice();
+    const t = document.getElementById('textInput').value.trim();
+    if (t) setTimeout(()=>submit(), 200);
+  };
+  recog.start();
+}
+
+function stopVoice() {
+  recording = false;
+  if (recog) { try{recog.stop();}catch(e){} recog=null; }
+  document.getElementById('micBtn').classList.remove('recording');
+  document.getElementById('micIcon').textContent = '🎙️';
+  document.getElementById('micLabel').textContent = '點擊麥克風開始說話';
+}
+
+// ── Submit ──
+function onKey(e) { if (e.key==='Enter'&&!e.shiftKey&&window.innerWidth>600){e.preventDefault();submit();} }
+function autoResize(el) { el.style.height='auto'; el.style.height=Math.min(el.scrollHeight,110)+'px'; }
+
+async function submit() {
+  const inp = document.getElementById('textInput');
+  const text = inp.value.trim();
+  if (!text) return;
+  inp.value=''; autoResize(inp);
+  document.getElementById('transcript').textContent='';
+  document.getElementById('sendBtn').disabled=true;
+  showProcessing('AI 解析中...');
+
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const tomorrow = new Date(Date.now()+86400000).toISOString().split('T')[0];
+
+    // Call AI via Worker
+    const aiEndpoint = workerUrl ? workerUrl+'/ai' : 'https://api.anthropic.com/v1/messages';
+    const pr = await fetch(aiEndpoint, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        model:'claude-sonnet-4-20250514', max_tokens:1000,
+        system:`你是任務分類助手。把輸入拆成一或多個任務並分類。今天：${today}，明天：${tomorrow}。
+
+分類規則：
+- "calendar"：有明確時間或日期的事項（會議、約診、提醒、deadline）
+- "shopping"：食材、日用品、超市商品
+- "misc"：其他雜項代辦
+
+回傳 ONLY JSON array（無 markdown）：
+[{
+  "name": "事項名稱",
+  "type": "calendar|shopping|misc",
+  "date": "YYYY-MM-DD or null",
+  "time": "HH:MM or null",
+  "priority": "high|medium|low|none"
+}]`,
+        messages:[{role:'user',content:text}]
+      })
+    });
+
+    const pd = await pr.json();
+    const raw = pd.content?.[0]?.text||'[]';
+    const pm = raw.replace(/```json|```/g,'').trim().match(/\[[\s\S]*\]/);
+    const items = pm ? JSON.parse(pm[0]) : [{name:text,type:'misc',date:null,time:null,priority:'none'}];
+
+    for (const item of items) {
+      const task = {
+        id: Date.now().toString(36)+Math.random().toString(36).slice(2,5),
+        name: item.name||text,
+        type: item.type||'misc',
+        date: item.date||null,
+        time: item.time||null,
+        priority: item.priority||'none',
+        done: false,
+        sync_id: null,
+        sync_status: isReady ? 'syncing' : 'local',
+        created_at: new Date().toISOString()
+      };
+      tasks.unshift(task); render();
+      if (isReady) {
+        showProcessing(syncLabel(task.type));
+        syncTask(task).then(()=>{save();render();});
+      }
+    }
+
+    save(); render();
+    showToast(`已新增 ${items.length} 項 ✓`);
+  } catch(e) {
+    console.error(e); showToast('發生錯誤，請重試 ✕');
+  } finally {
+    hideProcessing();
+    document.getElementById('sendBtn').disabled=false;
+  }
+}
+
+function syncLabel(type) {
+  if (type==='calendar') return '加入 Google 行事曆...';
+  if (type==='shopping') return '加入購物清單...';
+  return '加入雜項清單...';
+}
+
+// ── Sync to Google via Apps Script ──
+async function syncTask(task) {
+  try {
+    let payload;
+    if (task.type === 'calendar') {
+      payload = { type:'calendar', name:task.name, date:task.date||new Date().toISOString().split('T')[0], time:task.time };
+    } else {
+      payload = { type:'keep', name:task.name, list_type: task.type==='shopping'?'shopping':'misc' };
+    }
+
+    const res = await fetch(gasUrl, {
+      method:'POST',
+      headers:{'Content-Type':'text/plain'}, // GAS needs text/plain to avoid CORS preflight
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (data.success) {
+      task.sync_id = data.event_id || data.task_id;
+      task.sync_status = 'synced';
+    } else {
+      task.sync_status = 'failed';
+    }
+  } catch(e) {
+    console.error('sync error:', e);
+    task.sync_status = 'failed';
+  }
+}
+
+async function retrySync(id) {
+  const t=tasks.find(x=>x.id===id); if(!t||!isReady) return;
+  t.sync_status='syncing'; render();
+  await syncTask(t); save(); render();
+}
+
+function toggleDone(id) {
+  const t=tasks.find(x=>x.id===id); if(!t) return;
+  t.done=!t.done; save(); render();
+}
+
+function deleteTask(id) { tasks=tasks.filter(t=>t.id!==id); save(); render(); }
+
+// ── Render ──
+function render() {
+  const cal   = tasks.filter(t=>t.type==='calendar');
+  const shop  = tasks.filter(t=>t.type==='shopping');
+  const misc  = tasks.filter(t=>t.type==='misc');
+  const empty = tasks.length===0;
+
+  document.getElementById('emptyState').style.display = empty?'block':'none';
+  document.getElementById('calSection').style.display  = cal.length?'block':'none';
+  document.getElementById('shopSection').style.display = shop.length?'block':'none';
+  document.getElementById('miscSection').style.display = misc.length?'block':'none';
+
+  document.getElementById('calBadge').textContent  = cal.filter(t=>!t.done).length+'/'+cal.length;
+  document.getElementById('shopBadge').textContent = shop.filter(t=>!t.done).length+'/'+shop.length;
+  document.getElementById('miscBadge').textContent = misc.filter(t=>!t.done).length+'/'+misc.length;
+
+  document.getElementById('calList').innerHTML  = cal.map(t=>cardHTML(t,'cal')).join('');
+  document.getElementById('shopList').innerHTML = shop.map(t=>cardHTML(t,'tasks-shopping')).join('');
+  document.getElementById('miscList').innerHTML = misc.map(t=>cardHTML(t,'tasks-misc')).join('');
+}
+
+function cardHTML(t, barClass) {
+  const pl={high:'🔴 高',medium:'🟡 中',low:'🟢 低'};
+  const sl={
+    synced:`<div class="sync-row s-synced"><span class="dot5"></span>已同步</div>`,
+    syncing:`<div class="sync-row s-syncing"><span class="dot5"></span>同步中…</div>`,
+    failed:`<div class="sync-row s-failed" onclick="retrySync('${t.id}')"><span class="dot5"></span>同步失敗，點擊重試</div>`,
+    local:`<div class="sync-row s-local"><span class="dot5"></span>未設定同步</div>`
+  };
+  return `<div class="task-card ${t.done?'done':''}">
+    <div class="platform-bar bar-${barClass==='cal'?'cal':'tasks'}"></div>
+    <div class="check ${t.done?'checked':''}" onclick="toggleDone('${t.id}')">${t.done?'✓':''}</div>
+    <div class="task-body">
+      <div class="task-name">${esc(t.name)}</div>
+      <div class="task-meta">
+        ${t.priority!=='none'?`<span class="tag tag-${t.priority}">${pl[t.priority]||''}</span>`:''}
+        ${t.date?`<span class="tag tag-date">📅 ${t.date}</span>`:''}
+        ${t.time?`<span class="tag tag-time">🕐 ${t.time}</span>`:''}
+      </div>
+      ${sl[t.sync_status]||''}
+    </div>
+    <button class="del-btn" onclick="deleteTask('${t.id}')">✕</button>
+  </div>`;
+}
+
+function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function save(){localStorage.setItem('tasks_v5',JSON.stringify(tasks));}
+function showProcessing(m){document.getElementById('processing').classList.add('show');document.getElementById('processingMsg').textContent=m;}
+function hideProcessing(){document.getElementById('processing').classList.remove('show');}
+let tt;
+function showToast(m){const el=document.getElementById('toast');el.textContent=m;el.classList.add('show');clearTimeout(tt);tt=setTimeout(()=>el.classList.remove('show'),2500);}
+</script>
+</body>
+</html>
